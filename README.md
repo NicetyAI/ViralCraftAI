@@ -17,7 +17,7 @@ Vitest, and Playwright configuration.
 Copy `.env.example` to `.env.local` and populate:
 
 - `DATABASE_URL`
-- `NEXTAUTH_SECRET` (random string, e.g. `openssl rand -base64 32`)
+- `AUTH_SECRET` or `NEXTAUTH_SECRET` (random string, e.g. `openssl rand -base64 32`)
 - `NEXTAUTH_URL` (e.g. `http://localhost:3000` in development)
 - `KIE_API_KEY`
 
