@@ -17,5 +17,20 @@ Vitest, and Playwright configuration.
 Copy `.env.example` to `.env.local` and populate:
 
 - `DATABASE_URL`
-- `NEXTAUTH_SECRET`
+- `NEXTAUTH_SECRET` (random string, e.g. `openssl rand -base64 32`)
+- `NEXTAUTH_URL` (e.g. `http://localhost:3000` in development)
 - `KIE_API_KEY`
+
+Apply migrations, then seed the demo owner (development):
+
+```bash
+npx prisma migrate deploy
+npm run db:seed
+```
+
+Demo sign-in (unless you set `DEMO_OWNER_PASSWORD`):
+
+- Email: `owner@example.com`
+- Password: `demo-password-change-me`
+
+In production, `db:seed` is skipped unless `ALLOW_DEMO_SEED=true`.
