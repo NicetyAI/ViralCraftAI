@@ -29,128 +29,138 @@ describe.skipIf(!hasDatabaseUrl)("Prisma schema", () => {
 
   it("persists nested relations end-to-end", async () => {
     const suffix = `${Date.now()}`;
-    const user = await prisma.user.create({
-      data: {
-        email: `integration-${suffix}@test.local`,
-        name: "Integration User",
-      },
-    });
+    let userId: string | undefined;
 
-    const workspace = await prisma.agencyWorkspace.create({
-      data: {
-        name: "Integration Workspace",
-        ownerUserId: user.id,
-      },
-    });
+    try {
+      const user = await prisma.user.create({
+        data: {
+          email: `integration-${suffix}@test.local`,
+          name: "Integration User",
+        },
+      });
+      userId = user.id;
 
-    const client = await prisma.client.create({
-      data: {
-        workspaceId: workspace.id,
-        name: "Brand",
-        industry: "Tech",
-        audience: "Builders",
-        painPoints: "Time",
-      },
-    });
+      const workspace = await prisma.agencyWorkspace.create({
+        data: {
+          name: "Integration Workspace",
+          ownerUserId: user.id,
+        },
+      });
 
-    const concept = await prisma.concept.create({
-      data: {
-        clientId: client.id,
-        title: "Spring push",
-        status: "DRAFT",
-        summary: "Test",
-      },
-    });
+      const client = await prisma.client.create({
+        data: {
+          workspaceId: workspace.id,
+          name: "Brand",
+          industry: "Tech",
+          audience: "Builders",
+          painPoints: "Time",
+        },
+      });
 
-    await prisma.videoJob.create({
-      data: {
-        conceptId: concept.id,
-        status: "QUEUED",
-        retries: 0,
-      },
-    });
+      const concept = await prisma.concept.create({
+        data: {
+          clientId: client.id,
+          title: "Spring push",
+          status: "DRAFT",
+          summary: "Test",
+        },
+      });
 
-    await prisma.videoAsset.create({
-      data: {
-        conceptId: concept.id,
-        url: "https://example.com/video.mp4",
-        mimeType: "video/mp4",
-        durationSeconds: 42,
-      },
-    });
+      await prisma.videoJob.create({
+        data: {
+          conceptId: concept.id,
+          status: "QUEUED",
+          retries: 0,
+        },
+      });
 
-    await prisma.captionPack.create({
-      data: {
-        conceptId: concept.id,
-        captions: ["Line one", "Line two"],
-        hashtags: ["#viral", "#test"],
-      },
-    });
+      await prisma.videoAsset.create({
+        data: {
+          conceptId: concept.id,
+          url: "https://example.com/video.mp4",
+          mimeType: "video/mp4",
+          durationSeconds: 42,
+        },
+      });
 
-    const schedule = await prisma.postingSchedule.create({
-      data: {
-        conceptId: concept.id,
-        timezone: "America/New_York",
-        startDate: new Date("2026-04-01"),
-      },
-    });
+      await prisma.captionPack.create({
+        data: {
+          conceptId: concept.id,
+          captions: ["Line one", "Line two"],
+          hashtags: ["#viral", "#test"],
+        },
+      });
 
-    const scheduledPost = await prisma.scheduledPost.create({
-      data: {
-        scheduleId: schedule.id,
-        dayIndex: 0,
-        publishAt: new Date("2026-04-01T12:00:00.000Z"),
-        platform: "tiktok",
-        contentAngle: "Problem → proof",
-      },
-    });
+      const schedule = await prisma.postingSchedule.create({
+        data: {
+          conceptId: concept.id,
+          timezone: "America/New_York",
+          startDate: new Date("2026-04-01"),
+        },
+      });
 
-    await prisma.supportContent.create({
-      data: {
-        scheduledPostId: scheduledPost.id,
-        kind: "hook",
-        body: "Stop scrolling — this one change doubled our leads.",
-      },
-    });
+      const scheduledPost = await prisma.scheduledPost.create({
+        data: {
+          scheduleId: schedule.id,
+          dayIndex: 0,
+          publishAt: new Date("2026-04-01T12:00:00.000Z"),
+          platform: "tiktok",
+          contentAngle: "Problem → proof",
+        },
+      });
 
-    const loaded = await prisma.concept.findUniqueOrThrow({
-      where: { id: concept.id },
-      include: {
-        videoJobs: true,
-        videoAsset: true,
-        captionPacks: true,
-        postingSchedules: {
-          include: {
-            posts: {
-              include: { supportContents: true },
+      await prisma.supportContent.create({
+        data: {
+          scheduledPostId: scheduledPost.id,
+          kind: "hook",
+          body: "Stop scrolling — this one change doubled our leads.",
+        },
+      });
+
+      const loaded = await prisma.concept.findUniqueOrThrow({
+        where: { id: concept.id },
+        include: {
+          videoJobs: true,
+          videoAsset: true,
+          captionPacks: true,
+          postingSchedules: {
+            include: {
+              posts: {
+                include: { supportContents: true },
+              },
             },
           },
         },
-      },
-    });
+      });
 
-    expect(loaded.videoJobs).toHaveLength(1);
-    expect(loaded.videoAsset?.url).toContain("video.mp4");
-    expect(loaded.captionPacks).toHaveLength(1);
-    expect(loaded.postingSchedules[0]?.posts[0]?.supportContents).toHaveLength(1);
-
-    await prisma.user.delete({ where: { id: user.id } });
+      expect(loaded.videoJobs).toHaveLength(1);
+      expect(loaded.videoAsset?.url).toContain("video.mp4");
+      expect(loaded.captionPacks).toHaveLength(1);
+      expect(loaded.postingSchedules[0]?.posts[0]?.supportContents).toHaveLength(1);
+    } finally {
+      if (userId) {
+        await prisma.user.delete({ where: { id: userId } });
+      }
+    }
   });
 });
 
 describe("Prisma schema (client shape)", () => {
-  it("has core models when Prisma Client is generated", () => {
+  it("has core models when Prisma Client is generated", async () => {
     const prisma = new PrismaClient();
-    expect(prisma.user).toBeDefined();
-    expect(prisma.agencyWorkspace).toBeDefined();
-    expect(prisma.client).toBeDefined();
-    expect(prisma.concept).toBeDefined();
-    expect(prisma.videoJob).toBeDefined();
-    expect(prisma.videoAsset).toBeDefined();
-    expect(prisma.captionPack).toBeDefined();
-    expect(prisma.postingSchedule).toBeDefined();
-    expect(prisma.scheduledPost).toBeDefined();
-    expect(prisma.supportContent).toBeDefined();
-    void prisma.$disconnect();
+    try {
+      expect(prisma.user).toBeDefined();
+      expect(prisma.agencyWorkspace).toBeDefined();
+      expect(prisma.client).toBeDefined();
+      expect(prisma.concept).toBeDefined();
+      expect(prisma.videoJob).toBeDefined();
+      expect(prisma.videoAsset).toBeDefined();
+      expect(prisma.captionPack).toBeDefined();
+      expect(prisma.postingSchedule).toBeDefined();
+      expect(prisma.scheduledPost).toBeDefined();
+      expect(prisma.supportContent).toBeDefined();
+    } finally {
+      await prisma.$disconnect();
+    }
   });
 });

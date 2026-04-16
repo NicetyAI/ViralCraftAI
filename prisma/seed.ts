@@ -3,6 +3,16 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_DEMO_SEED !== "true"
+  ) {
+    console.warn(
+      "Skipping demo seed in production. Set ALLOW_DEMO_SEED=true to run.",
+    );
+    return;
+  }
+
   const user = await prisma.user.upsert({
     where: { email: "owner@example.com" },
     update: {},
