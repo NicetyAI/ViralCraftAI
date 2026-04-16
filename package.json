@@ -1,0 +1,30 @@
+{
+  "name": "viralcraft-v1",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "test:smoke": "vitest run tests/smoke/app-shell.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.5.0",
+    "playwright": "^1.59.1",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}
