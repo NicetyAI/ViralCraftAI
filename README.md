@@ -34,3 +34,10 @@ Demo sign-in (unless you set `DEMO_OWNER_PASSWORD`):
 - Password: `demo-password-change-me`
 
 In production, `db:seed` is skipped unless `ALLOW_DEMO_SEED=true`.
+
+## Clients (agency mode)
+
+- Open `/clients` to create and list brand workspaces (stored per agency workspace).
+- Use the header **client switcher** to set the active client; the choice is stored in an
+  httpOnly cookie (`vc_active_client`) for server-side use in later features.
+- API: `GET/POST /api/clients`, `PATCH /api/clients/[id]`, `POST /api/clients/[id]/switch`.

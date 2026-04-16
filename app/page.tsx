@@ -1,4 +1,5 @@
 import { auth } from "@/server/auth/config";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export default async function HomePage() {
@@ -18,6 +19,14 @@ export default async function HomePage() {
           {session.user.email}
         </span>
         . Dashboard and client tools ship in the next tasks.
+      </p>
+      <p className="mt-4">
+        <Link
+          className="text-sm font-semibold text-blue-700 hover:underline"
+          href="/clients"
+        >
+          Manage clients →
+        </Link>
       </p>
     </main>
   );

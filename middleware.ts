@@ -5,6 +5,13 @@ export default auth((req) => {
   const isLoggedIn = Boolean(req.auth);
   const { pathname } = req.nextUrl;
 
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
+    if (!isLoggedIn) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/login")) {
     if (isLoggedIn) {
       return NextResponse.redirect(new URL("/", req.nextUrl));
