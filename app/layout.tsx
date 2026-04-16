@@ -28,6 +28,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
                 ViralCraft AI
               </Link>
               <nav className="flex gap-4 text-sm font-medium text-stone-600">
+                <Link className="hover:text-blue-700" href="/generate">
+                  Generate
+                </Link>
                 <Link className="hover:text-blue-700" href="/clients">
                   Clients
                 </Link>
