@@ -1,0 +1,148 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum VideoJobStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum ConceptStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model User {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  name           String?
+  createdAt      DateTime         @default(now())
+  ownedWorkspace AgencyWorkspace?
+}
+
+model AgencyWorkspace {
+  id          String   @id @default(cuid())
+  name        String
+  ownerUserId String   @unique
+  owner       User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  clients     Client[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Client {
+  id          String          @id @default(cuid())
+  workspaceId String
+  workspace   AgencyWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  industry    String
+  audience    String?
+  painPoints  String?
+  concepts    Concept[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([workspaceId])
+}
+
+model Concept {
+  id               String            @id @default(cuid())
+  clientId         String
+  client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title            String
+  status           ConceptStatus     @default(DRAFT)
+  summary          String?
+  videoJobs        VideoJob[]
+  videoAsset       VideoAsset?
+  captionPacks     CaptionPack[]
+  postingSchedules PostingSchedule[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([clientId])
+}
+
+model VideoJob {
+  id            String         @id @default(cuid())
+  conceptId     String
+  concept       Concept        @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  status        VideoJobStatus @default(QUEUED)
+  retries       Int            @default(0)
+  providerJobId String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([conceptId])
+}
+
+model VideoAsset {
+  id              String   @id @default(cuid())
+  conceptId       String   @unique
+  concept         Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  url             String
+  mimeType        String
+  durationSeconds Float?
+  createdAt       DateTime @default(now())
+
+  @@index([conceptId])
+}
+
+model CaptionPack {
+  id        String   @id @default(cuid())
+  conceptId String
+  concept   Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  captions  Json?
+  hashtags  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conceptId])
+}
+
+model PostingSchedule {
+  id        String   @id @default(cuid())
+  conceptId String
+  concept   Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  timezone  String
+  startDate DateTime @db.Date
+  posts     ScheduledPost[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conceptId])
+}
+
+model ScheduledPost {
+  id              String           @id @default(cuid())
+  scheduleId      String
+  schedule        PostingSchedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  dayIndex        Int
+  publishAt       DateTime
+  platform        String
+  contentAngle    String?
+  supportContents SupportContent[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([scheduleId])
+}
+
+model SupportContent {
+  id              String        @id @default(cuid())
+  scheduledPostId String
+  scheduledPost   ScheduledPost @relation(fields: [scheduledPostId], references: [id], onDelete: Cascade)
+  kind            String
+  body            String
+  createdAt       DateTime      @default(now())
+
+  @@index([scheduledPostId])
+}
