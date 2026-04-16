@@ -62,6 +62,7 @@ model Concept {
   title            String
   status           ConceptStatus     @default(DRAFT)
   summary          String?
+  metadata         Json?
   videoJobs        VideoJob[]
   videoAsset       VideoAsset?
   captionPacks     CaptionPack[]

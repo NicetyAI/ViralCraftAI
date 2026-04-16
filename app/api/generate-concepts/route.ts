@@ -146,6 +146,7 @@ export async function POST(request: Request) {
           clientId,
           title: d.title,
           summary: d.summary,
+          metadata: d.card,
           status: "DRAFT",
         },
         select: {
@@ -154,6 +155,7 @@ export async function POST(request: Request) {
           summary: true,
           status: true,
           createdAt: true,
+          metadata: true,
         },
       }),
     ),

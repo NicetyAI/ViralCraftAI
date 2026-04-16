@@ -1,9 +1,16 @@
 import { ClientSwitcher } from "@/components/client-switcher";
 import type { Metadata } from "next";
+import { Syne } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Providers } from "./providers";
 import "./globals.css";
+
+const syne = Syne({
+  subsets: ["latin"],
+  variable: "--font-syne",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "ViralCraftAI",
@@ -16,7 +23,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
+    <html className={syne.variable} lang="en">
       <body>
         <Providers>
           <header className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 py-3">

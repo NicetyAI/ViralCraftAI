@@ -1,7 +1,13 @@
 "use client";
 
+import type { ConceptCardPayload } from "@/server/concepts/concept-card-types";
+import {
+  CONCEPT_CARD_VERSION,
+  isConceptCardPayload,
+} from "@/server/concepts/concept-card-types";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConceptCard } from "./concept-card";
 
 const INDUSTRIES = [
   "Home services & HVAC",
@@ -61,15 +67,37 @@ const COMEDY_CARDS = [
   },
 ];
 
-type ConceptRow = {
+type ApiConcept = {
   id: string;
   title: string;
   summary: string | null;
   status: string;
   createdAt: string;
+  metadata: unknown;
 };
 
 type Stage = 1 | 2 | 3 | 4;
+
+function fallbackCard(c: ApiConcept): ConceptCardPayload {
+  return {
+    v: CONCEPT_CARD_VERSION,
+    formatTag: "15–30s · Vertical",
+    platformTag: "—",
+    openingHook: `“${c.title.slice(0, 200)}${c.title.length > 200 ? "…" : ""}”`,
+    sceneDirection: c.summary ?? "Scene direction will appear here.",
+    captionPreview: `${c.title} 🔥 Save this angle.`,
+    hashtags: ["#viralcraft", "#concepts", "#agency"],
+    whyItWorks:
+      "Hooks a recognizable pain point, then delivers a twist that fits native short-form pacing.",
+  };
+}
+
+function getCard(c: ApiConcept): ConceptCardPayload {
+  if (isConceptCardPayload(c.metadata)) {
+    return c.metadata;
+  }
+  return fallbackCard(c);
+}
 
 export function GeneratePageClient() {
   const [stage, setStage] = useState<Stage>(1);
@@ -91,8 +119,11 @@ export function GeneratePageClient() {
   );
   const [clientsLoading, setClientsLoading] = useState(true);
 
-  const [concepts, setConcepts] = useState<ConceptRow[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [concepts, setConcepts] = useState<ApiConcept[]>([]);
+  const [videoConceptId, setVideoConceptId] = useState<string | null>(null);
+  const [contentConceptId, setContentConceptId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -152,6 +183,35 @@ export function GeneratePageClient() {
     ],
   );
 
+  const visibleConcepts = useMemo(
+    () => concepts.filter((c) => c.status !== "ARCHIVED"),
+    [concepts],
+  );
+
+  const videoConcept = concepts.find((c) => c.id === videoConceptId);
+  const contentConcept = concepts.find((c) => c.id === contentConceptId);
+
+  async function patchConceptStatus(id: string, status: "ACTIVE" | "ARCHIVED") {
+    const res = await fetch(`/api/concepts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      concept?: ApiConcept;
+    };
+    if (!res.ok) {
+      setError(data.error ?? "Could not update concept.");
+      return;
+    }
+    if (data.concept) {
+      setConcepts((prev) =>
+        prev.map((c) => (c.id === id ? data.concept! : c)),
+      );
+    }
+  }
+
   async function onGenerate() {
     setError(null);
     if (!activeClientId) {
@@ -163,7 +223,6 @@ export function GeneratePageClient() {
       return;
     }
 
-    setStage(2);
     setSubmitting(true);
     try {
       const res = await fetch("/api/generate-concepts", {
@@ -183,29 +242,51 @@ export function GeneratePageClient() {
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
-        concepts?: ConceptRow[];
+        concepts?: ApiConcept[];
       };
       if (!res.ok) {
         setError(data.error ?? "Generation failed.");
-        setStage(1);
-        setSubmitting(false);
         return;
       }
       setConcepts(data.concepts ?? []);
-      setSelectedId(null);
-      setStage(3);
+      setVideoConceptId(null);
+      setContentConceptId(null);
+      setStage(2);
     } catch {
       setError("Network error.");
-      setStage(1);
     } finally {
       setSubmitting(false);
     }
   }
 
-  const selectedConcept = concepts.find((c) => c.id === selectedId);
+  const stageTitle =
+    stage === 1
+      ? "Input"
+      : stage === 2
+        ? "Concept cards"
+        : stage === 3
+          ? "Generate video"
+          : "Generate content";
+
+  function resetAll() {
+    setStage(1);
+    setConcepts([]);
+    setVideoConceptId(null);
+    setContentConceptId(null);
+    setError(null);
+  }
 
   return (
-    <div className="min-h-screen bg-stone-100">
+    <div className="relative min-h-screen bg-stone-100">
+      {submitting && stage === 1 ? (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-stone-900/60 backdrop-blur-sm">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-amber-200 border-t-amber-600" />
+          <p className="mt-6 font-serif text-xl font-semibold text-white">
+            Generating concepts…
+          </p>
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-6xl px-4 py-8 lg:px-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -213,19 +294,13 @@ export function GeneratePageClient() {
               Concept engine
             </h1>
             <p className="mt-1 text-stone-600">
-              Stage {stage} of 4 — scroll-stopping, funny angles for your
-              client.
+              Stage {stage} of 4 — <span className="font-medium">{stageTitle}</span>
             </p>
           </div>
           {stage > 1 ? (
             <button
               className="text-sm font-medium text-blue-700 hover:underline"
-              onClick={() => {
-                setStage(1);
-                setConcepts([]);
-                setSelectedId(null);
-                setError(null);
-              }}
+              onClick={resetAll}
               type="button"
             >
               ← Start over
@@ -451,8 +526,8 @@ export function GeneratePageClient() {
                 Live preview
               </h2>
               <p className="mt-1 text-sm text-stone-500">
-                Your selections summarized — the right panel will host richer
-                previews in later stages.
+                Your selections summarized — cards appear in Stage 2 after
+                generate.
               </p>
               <ul className="mt-8 space-y-4">
                 {previewLines.map((line) => (
@@ -474,116 +549,139 @@ export function GeneratePageClient() {
         ) : null}
 
         {stage === 2 ? (
-          <div className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl border border-stone-200 bg-white p-12 text-center shadow-sm">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-amber-200 border-t-amber-600" />
-            <p className="mt-6 font-serif text-xl font-semibold text-stone-900">
-              Brewing absurdly good concepts…
+          <div>
+            <p className="mb-6 max-w-2xl text-stone-600">
+              Review each concept. Use the menu to save or discard. Generate
+              video or content independently — each opens its own stage.
             </p>
-            <p className="mt-2 max-w-md text-sm text-stone-600">
-              Stage 2 — hang tight while we line up {conceptCount} angles tuned
-              to {platform}.
-            </p>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {visibleConcepts.map((c, idx) => (
+                <ConceptCard
+                  card={getCard(c)}
+                  index={idx}
+                  key={c.id}
+                  onDiscard={() => void patchConceptStatus(c.id, "ARCHIVED")}
+                  onGenerateContent={() => {
+                    setContentConceptId(c.id);
+                    setStage(4);
+                  }}
+                  onGenerateVideo={() => {
+                    setVideoConceptId(c.id);
+                    setStage(3);
+                  }}
+                  onSave={() => void patchConceptStatus(c.id, "ACTIVE")}
+                  title={c.title}
+                />
+              ))}
+            </div>
+            {visibleConcepts.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center text-stone-500">
+                No concepts left — generate again from Stage 1.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
-        {stage === 3 ? (
-          <div className="space-y-8">
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm lg:p-8">
-              <h2 className="font-serif text-2xl font-semibold text-stone-900">
-                Your concepts
-              </h2>
-              <p className="mt-1 text-stone-600">
-                Stage 3 — tap one to shortlist for the next step (video via KIE
-                comes in a later task).
+        {stage === 3 && videoConcept ? (
+          <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm lg:p-8">
+            <h2 className="font-serif text-2xl font-semibold text-stone-900">
+              Stage 3 — Generate video
+            </h2>
+            <p className="mt-1 text-stone-600">
+              KIE / video pipeline will plug in here. Working concept:{" "}
+              <span className="font-medium text-stone-800">
+                {videoConcept.title}
+              </span>
+            </p>
+            <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
+              <p className="font-medium">Preview fields (from card)</p>
+              <p className="mt-2 text-amber-900/90">
+                {getCard(videoConcept).formatTag} ·{" "}
+                {getCard(videoConcept).platformTag}
               </p>
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {concepts.map((c, idx) => (
-                  <button
-                    className={`rounded-2xl border p-5 text-left transition ${
-                      selectedId === c.id
-                        ? "border-amber-600 bg-amber-50 ring-2 ring-amber-400"
-                        : "border-stone-200 bg-stone-50 hover:border-amber-300"
-                    }`}
-                    key={c.id}
-                    onClick={() => setSelectedId(c.id)}
-                    type="button"
-                  >
-                    <span className="text-xs font-bold uppercase tracking-widest text-stone-500">
-                      Concept {idx + 1}
-                    </span>
-                    <p className="mt-2 font-serif text-lg font-semibold text-stone-900">
-                      {c.title}
-                    </p>
-                    {c.summary ? (
-                      <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-xs text-stone-600">
-                        {c.summary}
-                      </p>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-8 flex flex-wrap gap-4">
-                <button
-                  className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-bold text-stone-900 shadow hover:bg-amber-400 disabled:opacity-50"
-                  disabled={!selectedId}
-                  onClick={() => setStage(4)}
-                  type="button"
-                >
-                  Continue with selected →
-                </button>
-                <button
-                  className="rounded-xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
-                  onClick={() => setStage(1)}
-                  type="button"
-                >
-                  Adjust brief
-                </button>
-              </div>
+            </div>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <button
+                className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-bold text-stone-900 hover:bg-amber-400"
+                type="button"
+              >
+                Start video job (coming soon)
+              </button>
+              <button
+                className="rounded-xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                onClick={() => {
+                  setStage(2);
+                  setVideoConceptId(null);
+                }}
+                type="button"
+              >
+                Back to concept cards
+              </button>
             </div>
           </div>
         ) : null}
 
-        {stage === 4 && selectedConcept ? (
+        {stage === 4 && contentConcept ? (
           <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm lg:p-8">
             <h2 className="font-serif text-2xl font-semibold text-stone-900">
-              Locked in
+              Stage 4 — Generate content
             </h2>
             <p className="mt-1 text-stone-600">
-              Stage 4 — this concept is saved on the client. Video generation,
-              captions, and schedule wire up next.
+              Captions, hashtags, and 30-day schedule will wire here. Concept:{" "}
+              <span className="font-medium text-stone-800">
+                {contentConcept.title}
+              </span>
             </p>
-            <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-              <p className="font-serif text-xl font-semibold text-amber-950">
-                {selectedConcept.title}
+            <div className="mt-8 rounded-2xl border border-blue-200 bg-blue-50 p-6 text-sm text-blue-950">
+              <p className="font-medium">Caption preview</p>
+              <p className="mt-2 whitespace-pre-wrap text-blue-900/90">
+                {getCard(contentConcept).captionPreview}
               </p>
-              {selectedConcept.summary ? (
-                <p className="mt-4 whitespace-pre-wrap text-sm text-amber-950/90">
-                  {selectedConcept.summary}
-                </p>
-              ) : null}
             </div>
             <div className="mt-8 flex flex-wrap gap-4">
               <button
                 className="rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-800"
+                type="button"
+              >
+                Generate content pack (coming soon)
+              </button>
+              <button
+                className="rounded-xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
                 onClick={() => {
-                  setStage(1);
-                  setConcepts([]);
-                  setSelectedId(null);
-                  setError(null);
-                  void loadClients();
+                  setStage(2);
+                  setContentConceptId(null);
                 }}
                 type="button"
               >
-                Generate another batch
+                Back to concept cards
               </button>
-              <Link
-                className="rounded-xl border border-stone-300 px-6 py-3 text-sm font-medium text-stone-700 hover:bg-stone-50"
-                href="/clients"
-              >
-                View clients
-              </Link>
             </div>
           </div>
+        ) : null}
+
+        {stage === 3 && !videoConcept ? (
+          <p className="text-stone-600">
+            Concept not found.{" "}
+            <button
+              className="font-medium text-blue-700 underline"
+              onClick={() => setStage(2)}
+              type="button"
+            >
+              Back
+            </button>
+          </p>
+        ) : null}
+        {stage === 4 && !contentConcept ? (
+          <p className="text-stone-600">
+            Concept not found.{" "}
+            <button
+              className="font-medium text-blue-700 underline"
+              onClick={() => setStage(2)}
+              type="button"
+            >
+              Back
+            </button>
+          </p>
         ) : null}
       </div>
     </div>

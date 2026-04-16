@@ -13,6 +13,19 @@ describe("buildConceptDrafts", () => {
     expect(drafts).toHaveLength(6);
   });
 
+  it("includes card payload for UI", () => {
+    const drafts = buildConceptDrafts({
+      industry: "SaaS",
+      targetAudience: "Entrepreneurs",
+      platform: "LinkedIn",
+      comedyStyle: "Sarcastic",
+      count: 2,
+    });
+    expect(drafts[0]?.card.formatTag).toContain("Vertical");
+    expect(drafts[0]?.card.platformTag).toBe("LinkedIn");
+    expect(drafts[0]?.card.hashtags.length).toBeGreaterThan(0);
+  });
+
   it("clamps count to valid range", () => {
     const low = buildConceptDrafts({
       industry: "Retail",
